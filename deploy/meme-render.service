@@ -1,0 +1,21 @@
+[Unit]
+Description=meme-opossum render service (Express + puppeteer)
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/meme-opossum/server
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Environment=HOST=127.0.0.1
+Environment=STATIC_BASE=http://127.0.0.1
+ExecStart=/usr/bin/node /opt/meme-opossum/server/index.js
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+User=root
+
+[Install]
+WantedBy=multi-user.target

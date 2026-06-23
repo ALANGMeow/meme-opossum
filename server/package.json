@@ -1,0 +1,15 @@
+{
+  "name": "meme-opossum-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-side renderer: opens the local static page in headless Chromium and returns the PNG bytes",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "puppeteer": "^23.10.4"
+  }
+}
