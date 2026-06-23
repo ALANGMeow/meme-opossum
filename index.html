@@ -34,8 +34,8 @@ function draw(ctx,cv,IMG,text){
   ctx.drawImage(IMG,0,0,cv.width,cv.height);
   if(!text)return;
   const h=cv.height;
-  const fontSize=Math.round(h*0.119);
-  const lh=Math.round(fontSize*1.17);
+  const fontSize=Math.round(h*0.1);
+  const lh=Math.round(fontSize*1.12);
   ctx.font='700 '+fontSize+'px -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
   ctx.textAlign="center";
   ctx.textBaseline="alphabetic";
