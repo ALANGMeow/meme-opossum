@@ -81,14 +81,16 @@ app.get("/api", async (req, res) => {
     });
 
     const safe = (text || "meme").replace(/[\\/:*?"<>|\r\n]+/g, "_").slice(0, 40);
+    const buf = Buffer.isBuffer(png) ? png : Buffer.from(png);
     res
       .status(200)
       .set({
         "Content-Type": "image/png",
+        "Content-Length": buf.length,
         "Content-Disposition": `inline; filename="${encodeURIComponent(safe)}.png"`,
         "Cache-Control": "public, max-age=3600",
       })
-      .send(png);
+      .end(buf);
   } catch (e) {
     const msg = `${e?.name ?? "Error"}: ${e?.message ?? String(e)}\n${e?.stack ?? ""}`;
     res.status(500).type("text/plain; charset=utf-8").send(msg);
