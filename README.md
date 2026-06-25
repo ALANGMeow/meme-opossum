@@ -48,9 +48,10 @@ http://<your-server>/api?text=今天也要,加油呀&img=%E8%B4%9F%E9%BC%A0%E7%B
 
 文字渲染规则:
 
-- 字号、行高、阴影按底图高度等比缩放,任意尺寸的底图都能用
-- 文字白色 + 深色阴影,沉底居中
-- 超过 3 段会被截断
+- 字号、行高、描边粗细按底图高度等比缩放,任意尺寸的底图都能用
+- **自适应配色**:逐行采样背景亮度,亮区用黑字白边、暗区用白字黑边
+- **emoji 走 Noto Color Emoji 渲染、不描边**,保持原生彩色字形
+- 沉底居中,超过 3 段会被截断
 
 ---
 
@@ -132,6 +133,9 @@ meme-opossum/
 │   │   └── 跳楼.jpg ...
 │   └── 熊猫头系列/
 │       ├── 比耶.webp ...
+├── fonts/                  自托管字体
+│   ├── NotoColorEmoji.ttf  emoji 字体(~10MB)
+│   └── OFL.txt             SIL Open Font License 1.1
 ├── server/                 服务端渲染服务
 │   ├── index.js            Express + puppeteer,127.0.0.1:8787
 │   └── package.json
@@ -192,6 +196,12 @@ meme "add image: 熊猫头系列/狗头"
 ```
 
 ---
+
+## 字体致谢
+
+本仓库自托管 [Noto Color Emoji](https://github.com/googlefonts/noto-emoji)(© Google,SIL Open Font License 1.1)用于服务端 + 浏览器版渲染 emoji。许可证副本见 `fonts/OFL.txt`。
+
+iOS 捷径只下 PNG,不下字体;浏览器版首次访问会下一次 ~10MB ttf,nginx 缓存 30 天后续命中本地。
 
 ## 致谢
 
