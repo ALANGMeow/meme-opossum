@@ -13,17 +13,21 @@
 <canvas id="c"></canvas>
 <script>
 const EXTS=["jpg","jpeg","png","webp","gif"];
-function loadImage(n){
+function encodePath(p){
+  return p.split("/").map(encodeURIComponent).join("/");
+}
+function loadImage(p){
   return new Promise((resolve,reject)=>{
     let i=0;
     const img=new Image();
+    const enc=encodePath(p);
     img.onload=()=>resolve(img);
     img.onerror=()=>{
       i++;
-      if(i>=EXTS.length){reject(new Error("image "+n+" not found"));return;}
-      img.src="images/"+n+"."+EXTS[i];
+      if(i>=EXTS.length){reject(new Error("image "+p+" not found"));return;}
+      img.src="images/"+enc+"."+EXTS[i];
     };
-    img.src="images/"+n+"."+EXTS[0];
+    img.src="images/"+enc+"."+EXTS[0];
   });
 }
 function splitLines(text){
@@ -63,11 +67,15 @@ function download(cv,text){
 (async()=>{
   const p=new URLSearchParams(location.search);
   const text=p.get("text")||"";
-  const n=Math.max(0,parseInt(p.get("img")||"0",10)|0);
+  const imgPath=p.get("img")||"";
   const cv=document.getElementById("c");
   const ctx=cv.getContext("2d");
+  if(!imgPath){
+    document.body.innerHTML='<pre style="color:#fff;padding:20px;font:14px monospace;">missing img parameter</pre>';
+    return;
+  }
   let IMG;
-  try{ IMG=await loadImage(n); }
+  try{ IMG=await loadImage(imgPath); }
   catch(e){
     document.body.innerHTML='<pre style="color:#fff;padding:20px;font:14px monospace;">'+e.message+'</pre>';
     return;

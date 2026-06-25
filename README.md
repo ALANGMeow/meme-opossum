@@ -16,28 +16,34 @@
 |---|---|
 | 网页版(浏览器画图 + 自动下载) | `GET /?text=&img=` |
 | 渲染 API(直返 PNG 字节) | `GET /api?text=&img=` |
-| 底图清单(JSON,带分组) | `GET /images/manifest.json` |
-| 单张底图(原图) | `GET /images/<n>.<ext>` |
+| 底图清单(JSON,扫盘动态生成) | `GET /api/manifest` |
+| 单张底图(原图) | `GET /images/<path>.<ext>` |
 
 ---
 
 ## API
 
 ```
-GET /api?text=<文案>&img=<编号>
+GET /api?text=<文案>&img=<相对路径>
 ```
 
-| 参数 | 类型 | 默认 | 说明 |
+| 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `text` | string | 空 | 表情包文字。用 `,` 或 `，` 分隔最多 3 行 |
-| `img` | int | `0` | 底图编号,从 0 开始 |
+| `text` | string | 否 | 表情包文字,用 `,` 或 `，` 分隔最多 3 行 |
+| `img` | string | **是** | `images/` 下的相对路径,**不带扩展名**,UTF-8,需 URL 编码 |
+
+`img` 支持两种形态:
+- 顶层独立项:`猫咪上班忙碌到尖叫`
+- 一级分组下:`负鼠系列/背手`
+
+服务端只接受最多两级、无 `..`、无绝对路径、必须命中真实文件,否则 400。
 
 **返回**:`Content-Type: image/png`,直接是 PNG 字节流。
 
 示例:
 
 ```
-http://<your-server>/api?text=今天也要,加油呀&img=0
+http://<your-server>/api?text=今天也要,加油呀&img=%E8%B4%9F%E9%BC%A0%E7%B3%BB%E5%88%97%2F%E8%83%8C%E6%89%8B
 ```
 
 文字渲染规则:
@@ -48,64 +54,69 @@ http://<your-server>/api?text=今天也要,加油呀&img=0
 
 ---
 
-## 底图清单 `manifest.json`
+## 底图清单 `/api/manifest`
 
-`/images/manifest.json` 是底图编号的人类可读索引,**支持一级分组**:
+服务端实时扫 `images/` 目录生成,**最多两级嵌套**:
 
 ```json
 {
+  "猫咪上班忙碌到尖叫": "猫咪上班忙碌到尖叫",
   "负鼠系列": {
-    "背手": 0,
-    "跳楼": 1,
-    "真棒": 3
+    "背手": "负鼠系列/背手",
+    "跳楼": "负鼠系列/跳楼"
   },
-  "猫咪上班忙碌到尖叫": 2
+  "熊猫头系列": {
+    "比耶": "熊猫头系列/比耶",
+    "生气": "熊猫头系列/生气"
+  }
 }
 ```
 
-- 叶子值是 **整数** → 直接是 `img` 参数
+- 叶子值是 **字符串** → 直接作为 `img` 参数透传
 - 叶子值是 **对象** → 是分组,需要再选一层
-- 该 JSON 的 `Cache-Control: no-cache`,改完立即生效,客户端不会拿到旧版
+- 键按 `zh-Hans-CN` 排序,顺序稳定
+- 响应 `Cache-Control: no-cache`,加图后下一次请求立即生效
 
 ---
 
 ## 添加新底图
 
-1. 把图丢进 `images/` 目录,文件名是**下一个空闲编号** + 扩展名,例如 `images/9.png`
-   - 支持的扩展名:`jpg` / `jpeg` / `png` / `webp` / `gif`,自动按顺序探测,不用改代码
-   - 任意尺寸,canvas 会自适应
-2. 在 `images/manifest.json` 加一条:`"中文描述": 9`(或塞进某个分组里)
-3. 推送 + 重启服务器(本仓库提供了一键脚本,见下)
+零配置,**不需要改任何 JSON**:
+
+1. 把图丢进 `images/<分类>/<显示名>.<ext>`,例如 `images/熊猫头系列/狗头.webp`
+   - 顶层 `.ext` = 独立项;一级目录 = 分组;**不支持更深嵌套**
+   - 文件名(去扩展名)就是 manifest 里的显示 key,UTF-8 中文随便用
+   - 支持扩展名:`jpg / jpeg / png / webp / gif`,自动按顺序探测
+2. 推送 + 重启服务器 —— `/api/manifest` 下一次响应就包含新图
 
 ---
 
 ## iOS 捷径伪代码
 
-支持嵌套 manifest(分组减少列表长度)。注意捷径里用"**类型**"判断比字符串前缀稳。
-
 ```text
-1. 获取 URL 内容   GET   http://<your-server>/images/manifest.json
-2. 从输入获取词典(把上一步 JSON 转成词典 cur)
-3. 循环最多 N 次(N=manifest 嵌套深度,通常 2):
+1. 获取 URL 内容   GET   http://<your-server>/api/manifest
+2. 从输入获取词典   → cur
+3. 循环最多 2 次:
      a. 从词典获取键 cur            → keys
      b. 从列表中选择 keys           → choice
      c. 从词典获取值 cur[choice]    → value
      d. 如果 类型(value) == 词典:
             cur = value           (进入分组,继续循环)
         否则:
-            imgId = value         (拿到叶子编号,跳出循环)
-4. 要求输入文本: "请输入文案"        → text
-5. URL 编码 text                    → encodedText
-6. 文本:
-     http://<your-server>/api?img=[imgId]&text=[encodedText]
-7. 获取 URL 内容   GET   上一步文本   → PNG 字节
-8. 共享 / 存储到照片
+            imgPath = value       (拿到字符串路径,跳出循环)
+4. URL 编码 imgPath                 → encodedImg
+5. 要求输入文本: "请输入文案"        → text
+6. URL 编码 text                    → encodedText
+7. 文本:
+     http://<your-server>/api?img=[encodedImg]&text=[encodedText]
+8. 获取 URL 内容   GET   上一步文本   → PNG 字节
+9. 共享 / 存储到照片
 ```
 
 **为什么从服务器拿 manifest 而不是写死在捷径里**
 
 - 把捷径分享给朋友,他们看到的选项永远是 manifest 当前内容 —— 你加图、改名,他们下次跑就更新
-- 朋友手敲一个不存在的编号(比如直接改捷径 `?img=99`)会因为底图找不到而 500,**不构成有效的"自带图"通道**
+- 朋友手敲一个不存在的路径会被服务端 400 拦截,**不构成有效的"自带图"通道**
 
 ---
 
@@ -114,10 +125,13 @@ http://<your-server>/api?text=今天也要,加油呀&img=0
 ```
 meme-opossum/
 ├── index.html              网页版(浏览器 canvas 渲染 + 自动下载)
-├── images/                 底图资源
-│   ├── 0.jpg
-│   ├── 1.jpg ...
-│   └── manifest.json       编号 ↔ 描述索引(支持分组)
+├── images/                 底图资源,文件名即显示名
+│   ├── 猫咪上班忙碌到尖叫.jpg
+│   ├── 负鼠系列/
+│   │   ├── 背手.jpg
+│   │   └── 跳楼.jpg ...
+│   └── 熊猫头系列/
+│       ├── 比耶.webp ...
 ├── server/                 服务端渲染服务
 │   ├── index.js            Express + puppeteer,127.0.0.1:8787
 │   └── package.json
@@ -155,7 +169,7 @@ sudo git clone https://github.com/ALANGMeow/meme-opossum.git /opt/meme-opossum
 cd /opt/meme-opossum && sudo bash start.sh
 ```
 
-成功后 `http://<your-server>/` 出现网页版,`http://<your-server>/api?text=hi` 返回 PNG。
+成功后 `http://<your-server>/api/manifest` 返回底图清单,`http://<your-server>/api?img=负鼠系列/背手&text=hi`(实际请求需 URL 编码)返回 PNG。
 
 > nginx 配置默认监听 80,`server_name _`(裸 IP 也接)。要绑域名 + HTTPS 改 `deploy/nginx-meme.conf` 加 `server_name` 和 certbot。
 
@@ -174,7 +188,7 @@ cd /opt/meme-opossum && bash restart.sh
 仓库根的 Windows 一键脚本 `meme.ps1`(放在 PATH 上)能在本地一行完成 commit + push + 远端重启:
 
 ```powershell
-meme "add image 9: 哭哭"
+meme "add image: 熊猫头系列/狗头"
 ```
 
 ---
