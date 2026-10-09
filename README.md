@@ -169,13 +169,13 @@ sudo apt-get install -y --no-install-recommends \
 # 2) clone 到 /opt
 sudo git clone https://github.com/ALANGMeow/meme-opossum.git /opt/meme-opossum
 
-# 3) 一键拉起(装 server 依赖、写 systemd、写 nginx、重启)
+# 3) 启动应用(装 server 依赖、写 systemd、重启应用; Nginx 单独维护)
 cd /opt/meme-opossum && sudo bash start.sh
 ```
 
 成功后 `http://<your-server>/api/manifest` 返回底图清单,`http://<your-server>/api?img=负鼠系列/背手&text=hi`(实际请求需 URL 编码)返回 PNG。
 
-> nginx 配置默认监听 80,`server_name _`(裸 IP 也接)。要绑域名 + HTTPS 改 `deploy/nginx-meme.conf` 加 `server_name` 和 certbot。
+> 首次部署需要单独配置 Nginx。`deploy/nginx-meme.conf` 仅作为参考模板,默认监听 80,`server_name _`(裸 IP 也接)。应用部署脚本不会安装或覆盖此模板,也不会重载或重启 Nginx。已有 HTTPS、OpenList 或 Webhook 等配置时,请直接维护服务器上的 Nginx 配置,避免被模板覆盖。
 
 ---
 
@@ -187,7 +187,9 @@ cd /opt/meme-opossum && sudo bash start.sh
 cd /opt/meme-opossum && bash restart.sh
 ```
 
-`restart.sh` 会:`git pull` → `npm install` → 同步 systemd unit / nginx 配置 → 重启服务 → reload nginx。
+`restart.sh` 会:校验现有 Nginx 配置 → `git pull` → `npm install` → 同步 systemd unit → 重启应用服务 → 检查 `/healthz`。
+
+更新代码和安装依赖前不会停止当前应用;准备阶段失败时,当前服务继续运行。Nginx 配置由服务器独立维护,不会在应用部署时被覆盖。
 
 仓库根的 Windows 一键脚本 `meme.ps1`(放在 PATH 上)能在本地一行完成 commit + push + 远端重启:
 

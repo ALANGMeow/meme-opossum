@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Pull latest code from GitHub, install server deps, (re)start systemd service, reload nginx.
+# Pull latest code, install server deps, and restart only the application service.
 # Run from the repo root on the server: bash start.sh   (or ./start.sh after chmod +x)
 set -euo pipefail
 
 cd "$(dirname "$0")"
+
+echo "[start.sh] validate existing nginx config (managed separately)"
+nginx -t
 
 echo "[start.sh] git pull"
 git pull --ff-only
@@ -16,17 +19,14 @@ install -m 0644 deploy/meme-render.service /etc/systemd/system/meme-render.servi
 systemctl daemon-reload
 systemctl enable meme-render >/dev/null
 
-echo "[start.sh] sync nginx site"
-install -m 0644 deploy/nginx-meme.conf /etc/nginx/conf.d/meme.conf
-# Disable Ubuntu's default site if it exists, so our default_server wins.
-if [ -e /etc/nginx/sites-enabled/default ]; then
-  rm -f /etc/nginx/sites-enabled/default
-fi
-nginx -t
-
-echo "[start.sh] restart services"
+echo "[start.sh] restart application service"
 systemctl restart meme-render
-systemctl reload nginx || systemctl restart nginx
+
+echo "[start.sh] wait for application readiness"
+curl --fail --silent --show-error --retry 6 --retry-delay 1 \
+  --retry-connrefused --retry-max-time 20 --max-time 5 \
+  http://127.0.0.1:8787/healthz
+printf '\n'
 
 echo "[start.sh] done. status:"
 systemctl --no-pager --lines=0 status meme-render | head -5 || true
